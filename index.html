@@ -14,12 +14,9 @@
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
     body { background: #0b1a1a; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: white; margin: 0; position: relative; overflow: hidden; }
     
-    /* Audio Unlock Overlay */
+    /* Audio Unlock Overlay - REMOVED */
     #audioUnlock {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(11, 26, 26, 0.95); z-index: 9999;
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      cursor: pointer; text-align: center; color: #1db954;
+      display: none !important;
     }
 
     /* Language Selector Badge (Top Left) */
@@ -70,12 +67,8 @@
 </head>
 <body>
 
-  <!-- Audio unlock screen (Required by browsers to play sound/voice) -->
-  <div id="audioUnlock">
-    <span class="material-icons" style="font-size: 64px; margin-bottom: 20px;">touch_app</span>
-    <h2>Tap anywhere to start Display</h2>
-    <p style="color:#b0d4cc; margin-top:10px;">(This allows audio & music to work)</p>
-  </div>
+  <!-- Audio unlock screen - FULLY DISABLED -->
+  <div id="audioUnlock" style="display:none !important;"></div>
 
   <!-- Language Selector -->
   <div class="language-badge">
@@ -120,16 +113,21 @@
       localStorage.setItem('displayLanguage', e.target.value);
     });
 
-    // 2. Unlock Audio Context
-    document.getElementById('audioUnlock').addEventListener('click', function() {
-      this.style.display = 'none';
-      if ('speechSynthesis' in window) {
-         let silentUtterance = new SpeechSynthesisUtterance('');
-         speechSynthesis.speak(silentUtterance);
-      }
-    });
+    // 2. Auto-unlock audio context
+    if ('speechSynthesis' in window) {
+      let silentUtterance = new SpeechSynthesisUtterance('');
+      speechSynthesis.speak(silentUtterance);
+    }
+    if (window.AudioContext || window.webkitAudioContext) {
+      try {
+        let ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+      } catch(e) {}
+    }
 
-    // ----- FIREBASE CONFIG (Do not change) -----
+    // ----- FIREBASE CONFIG -----
     const firebaseConfig = {
       apiKey: "AIzaSyCkNqoGvvIhWivgC_P9PDUvEQ0VS5N6SI0",
       authDomain: "photography-9628b.firebaseapp.com",
@@ -147,71 +145,125 @@
     }
     document.getElementById('myCodeDisplay').innerText = myCode;
 
-    // ----- AUDIO & MUSIC GENERATION SYSTEM -----
+    // ----- SOUND BOX STYLE MUSIC (Same as phone sound box) -----
     function playSuccessMusic(callback) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) { if(callback) callback(); return; }
       const ctx = new AudioContext();
       
-      // A pleasant 2-second "Tada-da-Ding!" chime sequence
-      const notes = [
-        { freq: 523.25, time: 0.0, dur: 0.2 }, // C5
-        { freq: 659.25, time: 0.2, dur: 0.2 }, // E5
-        { freq: 783.99, time: 0.4, dur: 0.4 }, // G5
-        { freq: 1046.50, time: 0.8, dur: 0.8 } // C6 (long ring)
-      ];
+      // 🎵 Sound box style - phone cash register sound
+      // Cash register "DING" - bright and clear
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(1200, ctx.currentTime);
+      osc1.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.15);
+      gain1.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain1.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.02);
+      gain1.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.2);
+      osc1.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.2);
 
-      notes.forEach(note => {
+      // Second "KA-CHING" sound
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(600, ctx.currentTime + 0.2);
+      osc2.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.4);
+      gain2.gain.setValueAtTime(0.0001, ctx.currentTime + 0.2);
+      gain2.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 0.25);
+      gain2.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.5);
+      osc2.start(ctx.currentTime + 0.2);
+      osc2.stop(ctx.currentTime + 0.5);
+
+      // Success chime - happy ascending
+      const notes = [523, 659, 784, 1047];
+      notes.forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        
         osc.type = 'sine';
-        osc.frequency.value = note.freq;
-        
-        const start = ctx.currentTime + note.time;
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(0.7, start + 0.05); // Loudness
-        gain.gain.exponentialRampToValueAtTime(0.01, start + note.dur);
-        
-        osc.start(start);
-        osc.stop(start + note.dur);
+        osc.frequency.value = freq;
+        const startTime = ctx.currentTime + 0.4 + (i * 0.12);
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.linearRampToValueAtTime(0.7, startTime + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.1, startTime + 0.15);
+        osc.start(startTime);
+        osc.stop(startTime + 0.18);
       });
-      
-      // Wait roughly 2 seconds before executing next step
-      setTimeout(() => { if(callback) callback(); }, 2000);
+
+      // Final chord - celebratory
+      const chord = [523, 659, 784];
+      chord.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const startTime = ctx.currentTime + 0.9;
+        gain.gain.setValueAtTime(0.0001, startTime + (i * 0.05));
+        gain.gain.linearRampToValueAtTime(0.5, startTime + 0.1 + (i * 0.05));
+        gain.gain.exponentialRampToValueAtTime(0.05, startTime + 0.6 + (i * 0.05));
+        osc.start(startTime + (i * 0.05));
+        osc.stop(startTime + 0.7 + (i * 0.05));
+      });
+
+      setTimeout(() => { if(callback) callback(); }, 1500);
     }
 
+    // ----- VOICE ANNOUNCEMENT - Sound box style, same as phone -----
     function playSuccessSequence(amount) {
       if (!('speechSynthesis' in window)) return;
       
-      // 1. Play intro music (2 seconds)
+      // Play sound box music first
       playSuccessMusic(() => {
-         
-         // 2. Voice Announcement based on selected language
          const lang = document.getElementById('langSelect').value;
          let text = "";
          let voiceLang = "";
-         let cleanAmount = parseFloat(amount).toString(); // removes extra zeros for voice
          
+         // Clean amount - no .00
+         let cleanAmount = parseFloat(amount);
+         let displayAmount = cleanAmount % 1 === 0 ? cleanAmount.toString() : cleanAmount.toFixed(2);
+         
+         // Sound box style announcements - same as phone
          if(lang === 'bn') {
-             text = cleanAmount + " টাকার পেমেন্ট সফলভাবে রিসিভ হয়েছে।";
+             text = displayAmount + " টাকা পেমেন্ট সফলভাবে গ্রহণ করা হয়েছে।";
              voiceLang = 'bn-IN';
          } else if(lang === 'hi') {
-             text = cleanAmount + " रुपये का पेमेंट सफलतापूर्वक प्राप्त हुआ।";
+             text = displayAmount + " रुपये का पेमेंट सफलतापूर्वक प्राप्त हुआ।";
              voiceLang = 'hi-IN';
          } else {
-             text = "Payment of " + cleanAmount + " rupees received successfully";
+             text = "Payment of " + displayAmount + " rupees received successfully.";
              voiceLang = 'en-IN';
          }
          
          const utterance = new SpeechSynthesisUtterance(text);
          utterance.rate = 0.9;
+         utterance.pitch = 1.0;
          utterance.lang = voiceLang;
+         utterance.volume = 1; // MAX LOUD
+         
+         // Get proper voice
+         const voices = speechSynthesis.getVoices();
+         if (lang === 'bn') {
+           const bnVoice = voices.find(v => v.lang.includes('bn-IN') || v.lang.includes('bn'));
+           if (bnVoice) utterance.voice = bnVoice;
+         } else if (lang === 'hi') {
+           const hiVoice = voices.find(v => v.lang.includes('hi-IN') || v.lang.includes('hi'));
+           if (hiVoice) utterance.voice = hiVoice;
+         } else {
+           const enVoice = voices.find(v => v.lang.includes('en-IN') || v.lang.includes('en'));
+           if (enVoice) utterance.voice = enVoice;
+         }
          
          utterance.onend = () => {
-             // 3. Play outro music (2 seconds) after voice ends
+             // Play outro music
              playSuccessMusic(null);
          };
          
@@ -241,24 +293,26 @@
         } catch (e) { return '0.00'; }
       }
 
-      let lastPlayedTimestamp = null; // To prevent duplicate audio
+      let lastPlayedTimestamp = null;
 
       db.collection('displays').doc(myCode).onSnapshot((doc) => {
         if (doc.exists) {
           const data = doc.data();
 
-          // 1. Check for Success Status FIRST
           if (data.status === 'success') {
              normalMode.style.display = 'none';
              successScreen.style.display = 'flex';
-             successAmountDisplay.innerText = `₹ ${data.amount}`;
+             
+             // Display only main amount
+             let displayAmount = parseFloat(data.amount);
+             let formattedAmount = displayAmount % 1 === 0 ? displayAmount.toString() : displayAmount.toFixed(2);
+             successAmountDisplay.innerText = `₹ ${formattedAmount}`;
 
              codeBadge.innerHTML = `<span class="material-icons" style="font-size:18px;">check_circle</span> Paid`;
              codeBadge.style.background = 'rgba(29, 185, 84, 0.2)';
              codeBadge.style.color = '#1db954';
              codeBadge.style.borderColor = '#1db954';
 
-             // Audio Play Logic (Check timestamp so it only plays once per payment)
              let currentTimestamp = data.timestamp ? data.timestamp.toMillis() : 0;
              if (lastPlayedTimestamp !== currentTimestamp) {
                  lastPlayedTimestamp = currentTimestamp;
@@ -267,7 +321,6 @@
              return; 
           } 
           
-          // 2. If Not Success, show Normal QR Mode
           normalMode.style.display = 'flex';
           successScreen.style.display = 'none';
 
@@ -298,7 +351,9 @@
 
           if (data.qr && data.status !== 'success') {
             const amount = extractAmountFromURI(data.qr);
-            amountDisplay.innerText = `₹ ${amount}`;
+            let displayAmount = parseFloat(amount);
+            let formattedAmount = displayAmount % 1 === 0 ? displayAmount.toString() : displayAmount.toFixed(2);
+            amountDisplay.innerText = `₹ ${formattedAmount}`;
             amountDisplay.style.display = 'block';
             
             qrContainer.innerHTML = ''; 
